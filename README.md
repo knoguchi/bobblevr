@@ -30,10 +30,8 @@ Watch YouTube 360° and VR180 videos with webcam head tracking. Move your head t
 ## Keyboard Shortcuts
 
 - **SHIFT**: Recenter view
-- **B**: Toggle bezel overlay
 - **H**: Hide/show UI
 - **ESC**: Close viewer
-- **P / K**: Play/pause video
 - **←/→**: Seek 5 seconds
 - **Scroll wheel**: Zoom in/out
 

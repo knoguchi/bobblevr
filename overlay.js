@@ -409,9 +409,6 @@ function run(THREE, sourceVideo) {
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); recenter(); }
     else if (e.code === 'KeyH') document.getElementById('bvr_info').classList.toggle('bvr_hide');
     else if (e.code === 'Escape') doClose();
-    else if (e.code === 'KeyP' || e.code === 'KeyK') {
-      if (sourceVideo.paused) sourceVideo.play(); else sourceVideo.pause();
-    }
     else if (e.code === 'ArrowLeft') sourceVideo.currentTime = Math.max(0, sourceVideo.currentTime - 5);
     else if (e.code === 'ArrowRight') sourceVideo.currentTime = sourceVideo.currentTime + 5;
   }
