@@ -1,0 +1,22 @@
+#__bvr_root #bvr_info {
+  position: fixed; top: 8px; left: 8px; z-index: 100;
+  background: rgba(20,20,20,0.95); padding: 8px 12px; border-radius: 6px;
+  font-size: 12px; line-height: 1.5; max-width: 320px;
+  border: 1px solid #444; color: #eee; font-family: sans-serif;
+}
+#__bvr_root #bvr_info input[type="number"] { width: 50px; }
+#__bvr_root #bvr_canvas { display: block; width: 100vw; height: 100vh; }
+#__bvr_root .bvr_hide { display: none !important; }
+#__bvr_root button { background: #222; color: #eee; border: 1px solid #555; padding: 4px 8px; cursor: pointer; margin: 2px; font-family: sans-serif; }
+#__bvr_root select, #__bvr_root input { background: #222; color: #eee; border: 1px solid #555; font-family: sans-serif; }
+
+#__bvr_root #bvr_cornerClose {
+  position: fixed; top: 8px; right: 8px; z-index: 200;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(20,20,20,0.8); color: #eee; border: 1px solid #555;
+  font-size: 20px; line-height: 1; cursor: pointer;
+  padding: 0; display: flex; align-items: center; justify-content: center;
+}
+#__bvr_root #bvr_cornerClose:hover {
+  background: #a33; border-color: #c55;
+}

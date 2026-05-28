@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="20" fill="#1a1a2e"/>
+  <!-- Bobblehead spring body -->
+  <path d="M64 95 Q60 80 56 70 Q68 68 72 70 Q68 80 64 95Z" fill="#556" stroke="#88aaff" stroke-width="1"/>
+  <!-- Head circle -->
+  <circle cx="64" cy="48" r="26" fill="#334" stroke="#88aaff" stroke-width="3"/>
+  <!-- Eyes -->
+  <circle cx="55" cy="45" r="5" fill="#88aaff"/>
+  <circle cx="73" cy="45" r="5" fill="#88aaff"/>
+  <circle cx="55" cy="45" r="2" fill="#fff"/>
+  <circle cx="73" cy="45" r="2" fill="#fff"/>
+  <!-- 360 arc around head -->
+  <path d="M30 48 A34 34 0 0 1 98 48" fill="none" stroke="#88aaff" stroke-width="2" stroke-dasharray="4 3" opacity="0.6"/>
+  <path d="M98 48 A34 34 0 0 1 30 48" fill="none" stroke="#88aaff" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+</svg>
