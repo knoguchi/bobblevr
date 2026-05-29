@@ -58,6 +58,33 @@ Watch YouTube 360° and VR180 videos with webcam head tracking. Move your head t
 | VR180 | Hemisphere | Mono / SBS / TB | YouTube `vrConfig.partialSpherical` |
 | Flat | Plane | Mono | Manual / fallback |
 
+## Troubleshooting: Identifying the Video Format
+
+If auto-detection fails and the video looks strange, press **-** (flat mode) to inspect the raw video frame. Then use the visual clues below to pick the right format:
+
+**4 vertical columns (LLRR pattern):**
+This is stereo EAC 3D. The left two columns are the left eye, the right two are the right eye. Each column has 3 stacked cubemap faces with their top edge pointing left. Press **2** (EAC 3D SBS).
+
+**3 columns x 2 rows (6 tiles):**
+Standard YouTube EAC 360°. The top row has 3 cubemap faces, the bottom row has 3 more, all rotated 90°. Press **1** (EAC 360°).
+
+**Wide panoramic image (2:1 aspect ratio):**
+Equirectangular 360°. The image looks like a world map projection. Press **4** (360°).
+
+**Top/bottom split, both halves show the same scene:**
+Stereo 3D. If each half is a panoramic image, try **6** (360° TB). If each half shows roughly 180° of content, try **8** (VR180 TB).
+
+**Left/right split, both halves show the same scene:**
+Stereo 3D side-by-side. If each half is a full panorama, try **5** (360° SBS). If each half shows roughly 180°, try **7** (VR180 SBS).
+
+**Top/bottom split with different orientations:**
+If the bottom half appears rotated 90° relative to the top, this is likely EAC 360° arranged vertically. Try **1** (EAC 360°) or **3** (EAC 3D TB).
+
+**Normal-looking video:**
+Flat video, not 360°. Press **-** (Flat) or **0** to stay in flat mode.
+
+Press **=** to retry auto-detection at any time.
+
 ## How It Works
 
 1. Finds the playing `<video>` element on the page
