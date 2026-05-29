@@ -74,6 +74,8 @@
       </div>
       <div style="margin-top:6px;font-size:11px;color:#aaa">
         SHIFT recenter / H hide UI / ESC close / scroll zoom<br>
+        1:EAC 2:EAC₃ᴅSBS 3:EAC₃ᴅTB 4:360 5:SBS360 6:TB360<br>
+        7:SBS180 8:TB180 9:Mono180 -:Flat =:Auto<br>
         Yaw: <select id="bvr_yawSign">
           <option value="-1" selected>head right → see right</option>
           <option value="1">reverse</option>

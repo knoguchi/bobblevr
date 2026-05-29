@@ -5,10 +5,10 @@ Watch YouTube 360° and VR180 videos with webcam head tracking. Move your head t
 ## Features
 
 - Head tracking via webcam (MediaPipe Face Landmarker)
-- Auto-detects YouTube video format (EAC 360°, equirectangular, VR180 SBS/TB/mono)
+- Auto-detects YouTube video format (EAC 360°, stereo EAC 3D, equirectangular, VR180)
+- Number keys 1-0 for quick format switching when auto-detect fails
 - Scroll wheel zoom
 - Lean-in zoom with stabilized view (sensitivity scales with zoom level)
-- Supports: EAC 360°, equirectangular 360°, VR180 SBS/TB/mono, flat video
 
 ## Install (Developer Mode)
 
@@ -29,27 +29,51 @@ Watch YouTube 360° and VR180 videos with webcam head tracking. Move your head t
 
 ## Keyboard Shortcuts
 
-- **SHIFT**: Recenter view
-- **H**: Hide/show UI
-- **ESC**: Close viewer
-- **←/→**: Seek 5 seconds
-- **Scroll wheel**: Zoom in/out
+| Key | Action |
+|-----|--------|
+| SHIFT | Recenter view |
+| H | Hide/show UI |
+| ESC | Close viewer |
+| Left/Right | Seek 5 seconds |
+| Scroll | Zoom in/out |
+| **1** | EAC 360° (YouTube mono) |
+| **2** | EAC 360° 3D SBS |
+| **3** | EAC 360° 3D TB |
+| **4** | 360° equirectangular |
+| **5** | 360° SBS |
+| **6** | 360° TB |
+| **7** | VR180 SBS |
+| **8** | VR180 TB |
+| **9** | VR180 mono |
+| **-** | Flat video |
+| **=** | Auto-detect |
+
+## Supported Formats
+
+| Format | Projection | Stereo | Detection |
+|--------|-----------|--------|-----------|
+| EAC 360° | Cubemap (3x2) | Mono | YouTube `MESH` / MSE metadata |
+| EAC 360° 3D | Cubemap (2x3 per eye) | SBS / TB | YouTube `MESH` + stereo layout |
+| Equirectangular 360° | Sphere | Mono / SBS / TB | YouTube `EQUIRECTANGULAR` / MSE metadata |
+| VR180 | Hemisphere | Mono / SBS / TB | YouTube `vrConfig.partialSpherical` |
+| Flat | Plane | Mono | Manual / fallback |
 
 ## How It Works
 
 1. Finds the playing `<video>` element on the page
-2. Maps the video texture onto a sphere (equirectangular/hemisphere) or cubemap (EAC)
+2. Maps the video texture onto a sphere/hemisphere (equirectangular) or cubemap (EAC) using Three.js
 3. Runs MediaPipe Face Landmarker in an extension iframe for head tracking
 4. Updates the Three.js camera based on face rotation and distance
+5. Auto-detects format from YouTube player data, MP4 spherical metadata (sv3d/proj boxes), and aspect ratio heuristics
 
-## Supported Formats
+## Build
 
-| Format | Detection |
-|--------|-----------|
-| EAC 360° | YouTube `projectionType: MESH` |
-| Equirectangular 360° | YouTube `projectionType: EQUIRECTANGULAR` |
-| VR180 (mono/SBS/TB) | YouTube `vrConfig.partialSpherical: true` |
-| Flat video | Manual selection |
+```sh
+git tag v1.0.0   # set version
+./build.sh       # creates bobblevr-1.0.0.zip
+```
+
+The zip is ready for upload to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
 
 ## License
 

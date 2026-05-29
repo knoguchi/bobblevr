@@ -312,13 +312,19 @@ function run(THREE, sourceVideo) {
 
   // Detect format from YouTube's player API + MSE metadata fallback
   function detectYouTubeFormat() {
-    // Try YouTube player data first
+    // Try YouTube player data
     try {
       const currentVideoId = new URLSearchParams(location.search).get('v');
       let pr = null;
       for (const src of [
         () => document.querySelector('ytd-watch-flexy')?.playerData_,
         () => window.ytInitialPlayerResponse,
+        () => document.querySelector('#movie_player')?.getPlayerResponse?.(),
+        () => {
+          // Try ytcfg embedded data
+          const cfg = window.ytcfg?.get?.('PLAYER_VARS');
+          return cfg?.embedded_player_response ? JSON.parse(cfg.embedded_player_response) : null;
+        },
       ]) {
         try {
           const candidate = src();
@@ -352,6 +358,8 @@ function run(THREE, sourceVideo) {
           if (isTB) return 'tb360';
           return 'mono360';
         }
+      } else {
+        console.log('[BobbleVR] no player response found');
       }
     } catch (e) {
       console.warn('[BobbleVR] player detection error:', e);
@@ -380,13 +388,24 @@ function run(THREE, sourceVideo) {
         if (meta.projection === 'cubemap') {
           return 'eac360';
         }
-        // Has sv3d box but unknown projection — likely spherical
         if (meta.foundSv3d) {
           return 'mono360';
         }
+      } else {
+        console.log('[BobbleVR] no MSE metadata found');
       }
     } catch (e) {
       console.warn('[BobbleVR] MSE metadata fallback error:', e);
+    }
+
+    // Fallback: aspect ratio heuristic
+    if (sourceVideo.videoWidth && sourceVideo.videoHeight) {
+      const ratio = sourceVideo.videoWidth / sourceVideo.videoHeight;
+      // 3:2 is typical mono EAC, 4:3 is typical stereo EAC SBS
+      if (Math.abs(ratio - 4/3) < 0.05) return 'eac360sbs';
+      if (Math.abs(ratio - 3/2) < 0.05) return 'eac360';
+      if (Math.abs(ratio - 2) < 0.05) return 'mono360';
+      if (Math.abs(ratio - 1) < 0.05) return 'tb360';
     }
 
     return null;
@@ -412,11 +431,21 @@ function run(THREE, sourceVideo) {
     status.textContent = `${w}x${h} → ${fallback} [select format manually]`;
   }
 
-  if (sourceVideo.videoWidth > 0) {
+  // Auto-detect with retry — player data may not be available immediately
+  let detectAttempts = 0;
+  function autoDetectWithRetry() {
     autoDetect();
+    detectAttempts++;
+    if (currentFormat === 'flat' && detectAttempts < 5) {
+      setTimeout(autoDetectWithRetry, 500);
+    }
+  }
+
+  if (sourceVideo.videoWidth > 0) {
+    autoDetectWithRetry();
   } else {
     buildMesh('eac360');
-    sourceVideo.addEventListener('loadedmetadata', autoDetect, { once: true });
+    sourceVideo.addEventListener('loadedmetadata', autoDetectWithRetry, { once: true });
   }
 
   let faceLandmarker = null;
@@ -536,12 +565,41 @@ function run(THREE, sourceVideo) {
     ipdCal = smoothedDist.ipd;
   }
 
+  // Format quick-switch: keys 1 through 0, -, =
+  const FORMAT_KEYS = {
+    '1': 'eac360',
+    '2': 'eac360sbs',
+    '3': 'eac360tb',
+    '4': 'mono360',
+    '5': 'sbs360',
+    '6': 'tb360',
+    '7': 'sbs180',
+    '8': 'tb180',
+    '9': 'mono180',
+    '-': 'flat',
+    '=': 'auto',
+  };
+
+  function switchFormat(fmt) {
+    currentFormat = fmt;
+    document.getElementById('bvr_fmt').value = fmt;
+    buildMesh(fmt);
+    const w = sourceVideo.videoWidth, h = sourceVideo.videoHeight;
+    status.textContent = `${w}x${h} → ${fmt}`;
+  }
+
   function onKey(e) {
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') { e.preventDefault(); recenter(); }
     else if (e.code === 'KeyH') document.getElementById('bvr_info').classList.toggle('bvr_hide');
     else if (e.code === 'Escape') doClose();
     else if (e.code === 'ArrowLeft') sourceVideo.currentTime = Math.max(0, sourceVideo.currentTime - 5);
     else if (e.code === 'ArrowRight') sourceVideo.currentTime = sourceVideo.currentTime + 5;
+    else if (FORMAT_KEYS[e.key] !== undefined) {
+      e.preventDefault();
+      const fmt = FORMAT_KEYS[e.key];
+      if (fmt === 'auto') { detectAttempts = 0; autoDetectWithRetry(); }
+      else switchFormat(fmt);
+    }
   }
   document.addEventListener('keydown', onKey);
 
