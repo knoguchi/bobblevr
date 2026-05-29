@@ -56,6 +56,8 @@
           </optgroup>
           <optgroup label="360°">
             <option value="eac360">EAC 360° (YouTube)</option>
+            <option value="eac360sbs">EAC 360° 3D SBS</option>
+            <option value="eac360tb">EAC 360° 3D TB</option>
             <option value="mono360">Mono 360° (equirectangular)</option>
             <option value="sbs360">360° SBS</option>
             <option value="tb360">360° TB</option>

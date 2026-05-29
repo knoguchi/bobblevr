@@ -1,15 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="20" fill="#1a1a2e"/>
-  <!-- Bobblehead spring body -->
-  <path d="M64 95 Q60 80 56 70 Q68 68 72 70 Q68 80 64 95Z" fill="#556" stroke="#88aaff" stroke-width="1"/>
-  <!-- Head circle -->
-  <circle cx="64" cy="48" r="26" fill="#334" stroke="#88aaff" stroke-width="3"/>
-  <!-- Eyes -->
-  <circle cx="55" cy="45" r="5" fill="#88aaff"/>
-  <circle cx="73" cy="45" r="5" fill="#88aaff"/>
-  <circle cx="55" cy="45" r="2" fill="#fff"/>
-  <circle cx="73" cy="45" r="2" fill="#fff"/>
-  <!-- 360 arc around head -->
-  <path d="M30 48 A34 34 0 0 1 98 48" fill="none" stroke="#88aaff" stroke-width="2" stroke-dasharray="4 3" opacity="0.6"/>
-  <path d="M98 48 A34 34 0 0 1 30 48" fill="none" stroke="#88aaff" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2d1b69"/>
+      <stop offset="100%" stop-color="#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="head" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffe0c2"/>
+      <stop offset="100%" stop-color="#ffc896"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="128" height="128" rx="24" fill="url(#bg)"/>
+  <!-- Spring -->
+  <path d="M60 78 Q56 82 62 86 Q68 90 58 94 Q66 96 70 94 Q62 90 68 86 Q74 82 68 78" fill="none" stroke="#aab4ff" stroke-width="2" stroke-linecap="round"/>
+  <!-- Body base -->
+  <ellipse cx="64" cy="100" rx="14" ry="8" fill="#6c5ce7" opacity="0.8"/>
+  <!-- Head - big and round (bobblehead style) -->
+  <circle cx="64" cy="52" r="28" fill="url(#head)"/>
+  <!-- Cheeks -->
+  <ellipse cx="44" cy="58" rx="6" ry="4" fill="#ffb0b0" opacity="0.45"/>
+  <ellipse cx="84" cy="58" rx="6" ry="4" fill="#ffb0b0" opacity="0.45"/>
+  <!-- Eyes - big friendly -->
+  <ellipse cx="53" cy="50" rx="7" ry="8" fill="#fff"/>
+  <ellipse cx="75" cy="50" rx="7" ry="8" fill="#fff"/>
+  <ellipse cx="54" cy="51" rx="4.5" ry="5" fill="#2d1b69"/>
+  <ellipse cx="76" cy="51" rx="4.5" ry="5" fill="#2d1b69"/>
+  <!-- Eye highlights -->
+  <circle cx="56" cy="48" r="2" fill="#fff"/>
+  <circle cx="78" cy="48" r="2" fill="#fff"/>
+  <!-- Happy mouth -->
+  <path d="M57 62 Q64 68 71 62" fill="none" stroke="#c47a5a" stroke-width="2" stroke-linecap="round"/>
+  <!-- VR goggles strap -->
+  <path d="M32 46 Q64 38 96 46" fill="none" stroke="#aab4ff" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <!-- 360 orbit ring -->
+  <ellipse cx="64" cy="52" rx="38" ry="12" fill="none" stroke="#aab4ff" stroke-width="2" stroke-dasharray="5 4" opacity="0.5" transform="rotate(-15 64 52)"/>
+  <!-- Small arrow on orbit -->
+  <polygon points="97,46 92,42 93,49" fill="#aab4ff" opacity="0.6"/>
 </svg>

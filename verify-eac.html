@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { margin: 8px; background: #111; color: #fff; font-family: monospace; }
+  canvas { border: 1px solid #444; display: block; margin: 4px 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+<h3>Source (4x3 stereo EAC — col 0: 90° CCW, col 1: upright)</h3>
+<canvas id="src" width="800" height="600"></canvas>
+<h3>Rendered views</h3>
+<div class="row" id="views"></div>
+<script>
+// ============================================================
+// Stereo EAC face UV lookup (verified per-face values)
+// ============================================================
+//  Per-eye layout (2 cols × 3 rows):
+//    Col 0        | Col 1
+//    Right(+X)    | Top(+Y)      row 2
+//    Front(-Z)    | Back(+Z)     row 1
+//    Left(-X)     | Bottom(-Y)   row 0
+//
+//  Sign matrix [fu_a, fu_b, fv_a, fv_b] where fu = (fa*da)/aMax, fv = (fb*db)/aMax
+//  Face         fu          fv
+//  Right  +X:   -dy/ax      dz/ax
+//  Left   -X:   -dy/ax     -dz/ax
+//  Front  -Z:   -dy/az      dx/az
+//  Back   +Z:   -dx/az      dy/az
+//  Top    +Y:    dx/ay      dz/ay
+//  Bottom -Y:    dx/ay     -dz/ay
+//
+function eacStereoFaceUV(dx, dy, dz) {
+  const ax = Math.abs(dx), ay = Math.abs(dy), az = Math.abs(dz);
+  let col, row, fu, fv;
+
+  if (ax >= ay && ax >= az) {
+    if (dx > 0) { col=0; row=2; fu=-dy/ax; fv= dz/ax; }  // Right +X
+    else        { col=0; row=0; fu=-dy/ax; fv=-dz/ax; }  // Left  -X
+  } else if (ay >= ax && ay >= az) {
+    if (dy < 0) { col=1; row=0; fu= dx/ay; fv=-dz/ay; }  // Bottom -Y
+    else        { col=1; row=2; fu= dx/ay; fv= dz/ay; }  // Top    +Y
+  } else {
+    if (dz < 0) { col=0; row=1; fu=-dy/az; fv= dx/az; }  // Front  -Z
+    else        { col=1; row=1; fu=-dx/az; fv= dy/az; }  // Back   +Z
+  }
+
+  return { col, row, fu, fv };
+}
+
+function eacStereoUV(dx, dy, dz, regionU, regionV, regionW, regionH) {
+  const len = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  const { col, row, fu, fv } = eacStereoFaceUV(dx/len, dy/len, dz/len);
+  const PI = Math.PI;
+  const eu = 2/PI * Math.atan(fu) + 0.5;
+  const ev = 2/PI * Math.atan(fv) + 0.5;
+
+  const faceW = 0.5, faceH = 1/3;
+  let u = col * faceW + eu * faceW;
+  let v = row * faceH + ev * faceH;
+  u = regionU + u * regionW;
+  v = regionV + v * regionH;
+  return { u, v };
+}
+
+// ============================================================
+// Draw test pattern
+// ============================================================
+const src = document.getElementById('src');
+const sctx = src.getContext('2d');
+const SW = 800, SH = 600;
+const colW = SW / 4, rowH = SH / 3;
+
+const faceColors = {
+  'RIGHT': '#e44', 'LEFT': '#4e4', 'FRONT': '#44e',
+  'BACK': '#e4e', 'TOP': '#ee4', 'BOTTOM': '#4ee'
+};
+// [col, row, name, rotation in degrees CCW]
+const eyeLayout = [
+  [0, 2, 'RIGHT',  90], [1, 2, 'TOP',    0],
+  [0, 1, 'FRONT',  90], [1, 1, 'BACK',   0],
+  [0, 0, 'LEFT',   90], [1, 0, 'BOTTOM', 0],
+];
+
+for (const eye of [0, 1]) {
+  const elabel = eye === 0 ? 'L' : 'R';
+  for (const [fc, fr, name, rot] of eyeLayout) {
+    const x = (eye * 2 + fc) * colW;
+    const y = (2 - fr) * rowH;
+    sctx.save();
+    sctx.translate(x + colW/2, y + rowH/2);
+    sctx.rotate(-rot * Math.PI / 180);
+    const hw = colW/2, hh = rowH/2;
+    sctx.fillStyle = faceColors[name];
+    sctx.globalAlpha = eye === 0 ? 1.0 : 0.5;
+    sctx.fillRect(-hw, -hh, colW, rowH);
+    sctx.globalAlpha = 1.0;
+    sctx.strokeStyle = '#fff';
+    sctx.strokeRect(-hw+1, -hh+1, colW-2, rowH-2);
+    sctx.fillStyle = '#000';
+    sctx.font = 'bold 14px monospace';
+    sctx.textAlign = 'center';
+    sctx.fillText(`${name} ${elabel}`, 0, -4);
+    sctx.fillText('\u2191 UP', 0, 16);
+    sctx.font = '10px monospace';
+    sctx.textAlign = 'left';  sctx.fillText('TL', -hw+3, -hh+12);
+    sctx.textAlign = 'right'; sctx.fillText('TR', hw-3, -hh+12);
+    sctx.textAlign = 'left';  sctx.fillText('BL', -hw+3, hh-3);
+    sctx.textAlign = 'right'; sctx.fillText('BR', hw-3, hh-3);
+    sctx.restore();
+  }
+}
+const srcData = sctx.getImageData(0, 0, SW, SH);
+
+// ============================================================
+// Render 6 views
+// ============================================================
+const views = [
+  { name:'Front (-Z)',   yaw:0,            pitch:0 },
+  { name:'Right (+X)',   yaw:-Math.PI/2,   pitch:0 },
+  { name:'Back (+Z)',    yaw:Math.PI,      pitch:0 },
+  { name:'Left (-X)',    yaw:Math.PI/2,    pitch:0 },
+  { name:'Top (+Y)',     yaw:0,            pitch:Math.PI/2 },
+  { name:'Bottom (-Y)',  yaw:0,            pitch:-Math.PI/2 },
+];
+
+const VW = 250, VH = 250, fov = Math.PI / 2;
+
+for (const view of views) {
+  const c = document.createElement('canvas');
+  c.width = VW; c.height = VH;
+  const ctx = c.getContext('2d');
+  const out = ctx.createImageData(VW, VH);
+
+  for (let py = 0; py < VH; py++) {
+    for (let px = 0; px < VW; px++) {
+      const ndcX = (px + 0.5) / VW * 2 - 1;
+      const ndcY = 1 - (py + 0.5) / VH * 2;
+      const t = Math.tan(fov / 2);
+      const rx = ndcX * t, ry = ndcY * t, rz = -1;
+      const cy2 = Math.cos(view.yaw), sy = Math.sin(view.yaw);
+      const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+      const dx = cy2 * rx + sy * rz;
+      const dz = -sy * rx + cy2 * rz;
+      const dy3 = cp * ry - sp * dz;
+      const dz2 = sp * ry + cp * dz;
+
+      const { u, v } = eacStereoUV(dx, dy3, dz2, 0, 0, 0.5, 1);
+      const sx = Math.min(SW-1, Math.max(0, Math.floor(u * SW)));
+      const sy2 = Math.min(SH-1, Math.max(0, Math.floor((1 - v) * SH)));
+      const si = (sy2 * SW + sx) * 4;
+      const di = (py * VW + px) * 4;
+      out.data[di]   = srcData.data[si];
+      out.data[di+1] = srcData.data[si+1];
+      out.data[di+2] = srcData.data[si+2];
+      out.data[di+3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+  ctx.beginPath();
+  ctx.moveTo(VW/2,0); ctx.lineTo(VW/2,VH);
+  ctx.moveTo(0,VH/2); ctx.lineTo(VW,VH/2);
+  ctx.stroke();
+
+  const wrap = document.createElement('div');
+  const label = document.createElement('div');
+  label.textContent = view.name;
+  label.style.textAlign = 'center';
+  wrap.appendChild(label);
+  wrap.appendChild(c);
+  document.getElementById('views').appendChild(wrap);
+}
+</script>
+</body>
+</html>

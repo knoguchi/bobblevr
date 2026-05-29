@@ -42,7 +42,9 @@ function run(THREE, sourceVideo) {
     'mono360': { uMin: 0,   uMax: 1,   vMin: 0,   vMax: 1,   projection: 'sphere360' },
     'sbs360':  { uMin: 0,   uMax: 0.5, vMin: 0,   vMax: 1,   projection: 'sphere360' },
     'tb360':   { uMin: 0,   uMax: 1,   vMin: 0.5, vMax: 1,   projection: 'sphere360' },
-    'eac360':  { projection: 'eac360' },
+    'eac360':    { projection: 'eac360', stereo: 'mono' },
+    'eac360sbs': { projection: 'eac360', stereo: 'sbs' },
+    'eac360tb':  { projection: 'eac360', stereo: 'tb' },
   };
 
   function recommendedSensitivity(projection) {
@@ -103,75 +105,172 @@ function run(THREE, sourceVideo) {
     }
 
     if (projection === 'eac360') {
-      // YouTube EAC (Equi-Angular Cubemap)
-      // Top row (v 0.5..1): Left(-X) | Front(-Z) | Right(+X)
-      // Bottom row (v 0..0.5): Bottom(-Y) | Back(+Z) | Top(+Y) — rotated 90° CW
+      const stereo = preset.stereo || 'mono';
       const vidW = sourceVideo.videoWidth || 3840;
       const vidH = sourceVideo.videoHeight || 2160;
+      console.log('[BobbleVR] EAC mode:', stereo, 'video:', vidW, 'x', vidH);
       geo = new THREE.SphereGeometry(R, 96, 64);
-      const mat = new THREE.ShaderMaterial({
-        uniforms: {
-          map: { value: videoTex },
-          texSize: { value: new THREE.Vector2(vidW, vidH) }
-        },
-        vertexShader: `
-          varying vec3 vPos;
-          void main() {
-            vPos = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform sampler2D map;
-          uniform vec2 texSize;
-          varying vec3 vPos;
-          const float PI = 3.14159265359;
-          const float CONT = 2.0;
+      let mat;
 
-          void main() {
-            vec3 d = normalize(vPos);
-            vec3 a = abs(d);
-            float col, row;
-            vec2 fuv;
-
-            if (a.x >= a.y && a.x >= a.z) {
-              if (d.x > 0.0) {
-                col = 2.0; row = 1.0;
-                fuv = vec2(d.z, d.y) / a.x;
-              } else {
-                col = 0.0; row = 1.0;
-                fuv = vec2(-d.z, d.y) / a.x;
-              }
-            } else if (a.y >= a.x && a.y >= a.z) {
-              if (d.y < 0.0) {
-                col = 0.0; row = 0.0;
-                fuv = vec2(d.z, d.x) / a.y;
-              } else {
-                col = 2.0; row = 0.0;
-                fuv = vec2(-d.z, d.x) / a.y;
-              }
-            } else {
-              if (d.z < 0.0) {
-                col = 1.0; row = 1.0;
-                fuv = vec2(d.x, d.y) / a.z;
-              } else {
-                col = 1.0; row = 0.0;
-                fuv = vec2(d.y, d.x) / a.z;
-              }
+      if (stereo === 'mono') {
+        // Mono EAC: 3 cols × 2 rows
+        // Top row:    Left(-X) | Front(-Z) | Right(+X)
+        // Bottom row: Down(-Y) | Back(+Z)  | Up(+Y)
+        mat = new THREE.ShaderMaterial({
+          uniforms: {
+            map: { value: videoTex },
+            texSize: { value: new THREE.Vector2(vidW, vidH) }
+          },
+          vertexShader: `
+            varying vec3 vPos;
+            void main() {
+              vPos = position;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
+          `,
+          fragmentShader: `
+            uniform sampler2D map;
+            uniform vec2 texSize;
+            varying vec3 vPos;
+            const float PI = 3.14159265359;
+            const float CONT = 2.0;
 
-            vec2 eac = 2.0 / PI * atan(fuv) + 0.5;
-            float faceW = 1.0 / 3.0;
-            float faceH = 0.5;
-            float cx = CONT / texSize.x;
-            float cy = CONT / texSize.y;
-            float u = col * faceW + cx + eac.x * (faceW - 2.0 * cx);
-            float v = row * faceH + cy + eac.y * (faceH - 2.0 * cy);
-            gl_FragColor = texture2D(map, vec2(u, v));
-          }
-        `,
-        side: THREE.BackSide
-      });
+            void main() {
+              vec3 d = normalize(vPos);
+              vec3 a = abs(d);
+              float col, row;
+              vec2 fuv;
+
+              if (a.x >= a.y && a.x >= a.z) {
+                if (d.x > 0.0) {
+                  col = 2.0; row = 1.0;
+                  fuv = vec2(d.z, d.y) / a.x;
+                } else {
+                  col = 0.0; row = 1.0;
+                  fuv = vec2(-d.z, d.y) / a.x;
+                }
+              } else if (a.y >= a.x && a.y >= a.z) {
+                if (d.y < 0.0) {
+                  col = 0.0; row = 0.0;
+                  fuv = vec2(d.z, d.x) / a.y;
+                } else {
+                  col = 2.0; row = 0.0;
+                  fuv = vec2(-d.z, d.x) / a.y;
+                }
+              } else {
+                if (d.z < 0.0) {
+                  col = 1.0; row = 1.0;
+                  fuv = vec2(d.x, d.y) / a.z;
+                } else {
+                  col = 1.0; row = 0.0;
+                  fuv = vec2(d.y, d.x) / a.z;
+                }
+              }
+
+              vec2 eac = 2.0 / PI * atan(fuv) + 0.5;
+              float faceW = 1.0 / 3.0;
+              float faceH = 0.5;
+              float cx = CONT / texSize.x;
+              float cy = CONT / texSize.y;
+              float u = col * faceW + cx + eac.x * (faceW - 2.0 * cx);
+              float v = row * faceH + cy + eac.y * (faceH - 2.0 * cy);
+              gl_FragColor = texture2D(map, vec2(u, v));
+            }
+          `,
+          side: THREE.BackSide
+        });
+      } else {
+        // Stereo EAC: 2 cols × 3 rows per eye
+        // SBS: left eye = left half, right eye = right half (4 cols × 3 rows total)
+        // TB:  left eye = top half, right eye = bottom half (2 cols × 6 rows total)
+        //
+        // Per-eye layout (from bottom):
+        //   Col 0        | Col 1
+        //   Right(+X)    | Top(+Y)      row 2
+        //   Front(-Z)    | Back(+Z)     row 1
+        //   Left(-X)     | Bottom(-Y)   row 0
+        const regionU = stereo === 'sbs' ? 0.0 : 0.0;
+        const regionV = stereo === 'tb' ? 0.5 : 0.0;
+        const regionW = stereo === 'sbs' ? 0.5 : 1.0;
+        const regionH = stereo === 'tb' ? 0.5 : 1.0;
+        mat = new THREE.ShaderMaterial({
+          uniforms: {
+            map: { value: videoTex },
+            texSize: { value: new THREE.Vector2(vidW, vidH) },
+            region: { value: new THREE.Vector4(regionU, regionV, regionW, regionH) }
+          },
+          vertexShader: `
+            varying vec3 vPos;
+            void main() {
+              vPos = position;
+              gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+          `,
+          fragmentShader: `
+            uniform sampler2D map;
+            uniform vec2 texSize;
+            uniform vec4 region;
+            varying vec3 vPos;
+            const float PI = 3.14159265359;
+            const float CONT = 2.0;
+
+            void main() {
+              vec3 d = normalize(vPos);
+              vec3 a = abs(d);
+              float col, row;
+              vec2 fuv;
+
+              // 2 cols × 3 rows per eye
+              // Col 0       | Col 1
+              // Right(+X)   | Top(+Y)     row 2
+              // Front(-Z)   | Back(+Z)    row 1
+              // Left(-X)    | Bottom(-Y)  row 0
+
+              // Verified face UV mappings for YouTube stereo EAC (2x3 per eye)
+              if (a.x >= a.y && a.x >= a.z) {
+                if (d.x > 0.0) {
+                  col = 0.0; row = 2.0;   // Right(+X)
+                  fuv = vec2(-d.y, d.z) / a.x;
+                } else {
+                  col = 0.0; row = 0.0;   // Left(-X)
+                  fuv = vec2(-d.y, -d.z) / a.x;
+                }
+              } else if (a.y >= a.x && a.y >= a.z) {
+                if (d.y < 0.0) {
+                  col = 1.0; row = 0.0;   // Bottom(-Y): 90°CCW from mono
+                  fuv = vec2(-d.x, d.z) / a.y;
+                } else {
+                  col = 1.0; row = 2.0;   // Top(+Y): 90°CCW from mono
+                  fuv = vec2(-d.x, -d.z) / a.y;
+                }
+              } else {
+                if (d.z < 0.0) {
+                  col = 0.0; row = 1.0;   // Front(-Z)
+                  fuv = vec2(-d.y, d.x) / a.z;
+                } else {
+                  col = 1.0; row = 1.0;   // Back(+Z)
+                  fuv = vec2(-d.x, d.y) / a.z;
+                }
+              }
+
+              vec2 eac = 2.0 / PI * atan(fuv) + 0.5;
+              float faceW = 0.5;
+              float faceH = 1.0 / 3.0;
+              float rW = region.z * texSize.x;
+              float rH = region.w * texSize.y;
+              float cx = CONT / rW;
+              float cy = CONT / rH;
+              float u = col * faceW + cx + eac.x * (faceW - 2.0 * cx);
+              float v = row * faceH + cy + eac.y * (faceH - 2.0 * cy);
+              u = region.x + u * region.z;
+              v = region.y + v * region.w;
+              gl_FragColor = texture2D(map, vec2(u, v));
+            }
+          `,
+          side: THREE.BackSide
+        });
+      }
+
       mesh = new THREE.Mesh(geo, mat);
       vrContainer.add(mesh);
       const sensInput = document.getElementById('bvr_sens');
@@ -211,16 +310,10 @@ function run(THREE, sourceVideo) {
 
   let currentFormat = 'eac360';
 
-  // Detect format from YouTube's player API
+  // Detect format from YouTube's player API + MSE metadata fallback
   function detectYouTubeFormat() {
+    // Try YouTube player data first
     try {
-      const player = document.querySelector('#movie_player');
-      if (!player) return null;
-
-      const sp = typeof player.getSphericalProperties === 'function'
-        ? player.getSphericalProperties() : null;
-      if (!sp) return null;
-
       const currentVideoId = new URLSearchParams(location.search).get('v');
       let pr = null;
       for (const src of [
@@ -232,33 +325,71 @@ function run(THREE, sourceVideo) {
           if (candidate?.videoDetails?.videoId === currentVideoId) { pr = candidate; break; }
         } catch(_) {}
       }
-      if (!pr) return null;
 
-      const is180 = pr.playerConfig?.vrConfig?.partialSpherical === true;
-      const formats = pr.streamingData?.adaptiveFormats || [];
-      const vFmt = formats.find(f => f.projectionType && f.projectionType !== 'RECTANGULAR');
-      const proj = vFmt?.projectionType || '';
-      const stereo = vFmt?.stereoLayout || '';
-      const isSBS = stereo.includes('LEFT_RIGHT');
-      const isTB = stereo.includes('TOP_BOTTOM');
+      if (pr) {
+        const is180 = pr.playerConfig?.vrConfig?.partialSpherical === true;
+        const formats = pr.streamingData?.adaptiveFormats || [];
+        const vFmt = formats.find(f => f.projectionType && f.projectionType !== 'RECTANGULAR');
+        const proj = vFmt?.projectionType || '';
+        const stereo = vFmt?.stereoLayout || '';
+        const isSBS = stereo.includes('LEFT_RIGHT');
+        const isTB = stereo.includes('TOP_BOTTOM');
 
-      console.log('[BobbleVR] detected:', { is180, proj, stereo });
+        console.log('[BobbleVR] player detected:', { is180, proj, stereo });
 
-      if (is180) {
-        if (isSBS) return 'sbs180';
-        if (isTB) return 'tb180';
-        return 'mono180';
+        if (is180) {
+          if (isSBS) return 'sbs180';
+          if (isTB) return 'tb180';
+          return 'mono180';
+        }
+        if (proj === 'MESH') {
+          if (isSBS) return 'eac360sbs';
+          if (isTB) return 'eac360tb';
+          return 'eac360';
+        }
+        if (proj === 'EQUIRECTANGULAR') {
+          if (isSBS) return 'sbs360';
+          if (isTB) return 'tb360';
+          return 'mono360';
+        }
       }
-      if (proj === 'MESH') return 'eac360';
-      if (proj === 'EQUIRECTANGULAR') {
-        if (isSBS) return 'sbs360';
-        if (isTB) return 'tb360';
-        return 'mono360';
-      }
-      return null;
     } catch (e) {
-      return null;
+      console.warn('[BobbleVR] player detection error:', e);
     }
+
+    // Fallback: MSE metadata from mse-hook.js (sv3d/proj MP4 boxes)
+    try {
+      const metaStr = document.documentElement.dataset.bvrSphericalMeta;
+      const meta = metaStr ? JSON.parse(metaStr) : window.__bvrMeta?.metadata;
+      if (meta) {
+        console.log('[BobbleVR] MSE metadata:', meta);
+        const stereoMode = meta.stereoMode || 'mono';
+        const isSBS = stereoMode === 'left-right';
+        const isTB = stereoMode === 'top-bottom';
+
+        if (meta.projection === 'mesh') {
+          if (isSBS) return 'eac360sbs';
+          if (isTB) return 'eac360tb';
+          return 'eac360';
+        }
+        if (meta.projection === 'equirectangular') {
+          if (isSBS) return 'sbs360';
+          if (isTB) return 'tb360';
+          return 'mono360';
+        }
+        if (meta.projection === 'cubemap') {
+          return 'eac360';
+        }
+        // Has sv3d box but unknown projection — likely spherical
+        if (meta.foundSv3d) {
+          return 'mono360';
+        }
+      }
+    } catch (e) {
+      console.warn('[BobbleVR] MSE metadata fallback error:', e);
+    }
+
+    return null;
   }
 
   function autoDetect() {

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  body { margin: 0; background: #111; color: #fff; font-family: monospace; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+  .view { text-align: center; }
+  .view canvas { display: block; border: 1px solid #444; }
+  #srcCanvas { border: 2px solid #ff0; }
+</style>
+</head>
+<body>
+<div class="view">
+  <div>Source (4x3 stereo EAC - left eye is cols 0-1)</div>
+  <canvas id="srcCanvas" width="800" height="600"></canvas>
+</div>
+<script type="importmap">
+{ "imports": { "three": "./lib/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// --- Draw labeled test pattern ---
+const src = document.getElementById('srcCanvas');
+const ctx = src.getContext('2d');
+const W = src.width, H = src.height;
+const colW = W / 4, rowH = H / 3;
+
+// Face layout per eye (2 cols x 3 rows):
+//   Col 0       | Col 1
+//   Right(+X)   | Top(+Y)      row 2
+//   Front(-Z)   | Back(+Z)     row 1
+//   Left(-X)    | Bottom(-Y)   row 0
+const faceColors = {
+  'RIGHT +X': '#e44', 'LEFT -X': '#4e4', 'FRONT -Z': '#44e',
+  'BACK +Z': '#e4e', 'TOP +Y': '#ee4', 'BOTTOM -Y': '#4ee'
+};
+const eyeLayout = [
+  // [col, row, name]
+  [0, 2, 'RIGHT +X'], [1, 2, 'TOP +Y'],
+  [0, 1, 'FRONT -Z'], [1, 1, 'BACK +Z'],
+  [0, 0, 'LEFT -X'],  [1, 0, 'BOTTOM -Y'],
+];
+
+for (const eye of [0, 1]) {
+  const label = eye === 0 ? 'L' : 'R';
+  for (const [fc, fr, name] of eyeLayout) {
+    const x = (eye * 2 + fc) * colW;
+    const y = (2 - fr) * rowH; // canvas y=0 is top, row 2 is top
+    ctx.fillStyle = faceColors[name];
+    ctx.globalAlpha = eye === 0 ? 1.0 : 0.5;
+    ctx.fillRect(x, y, colW, rowH);
+    ctx.globalAlpha = 1.0;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeRect(x + 1, y + 1, colW - 2, rowH - 2);
+
+    // Label
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${name} (${label})`, x + colW/2, y + rowH/2 - 10);
+
+    // Arrow pointing UP within the tile
+    ctx.fillText('UP', x + colW/2, y + 25);
+    ctx.beginPath();
+    ctx.moveTo(x + colW/2, y + 30);
+    ctx.lineTo(x + colW/2 - 8, y + 45);
+    ctx.lineTo(x + colW/2 + 8, y + 45);
+    ctx.closePath();
+    ctx.fillStyle = '#000';
+    ctx.fill();
+
+    // Corner markers
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'left';
+    ctx.fillText('TL', x + 4, y + 14);
+    ctx.textAlign = 'right';
+    ctx.fillText('TR', x + colW - 4, y + 14);
+    ctx.textAlign = 'left';
+    ctx.fillText('BL', x + 4, y + rowH - 4);
+    ctx.textAlign = 'right';
+    ctx.fillText('BR', x + colW - 4, y + rowH - 4);
+  }
+}
+
+// --- Render with same shader as overlay.js stereo EAC ---
+const tex = new THREE.CanvasTexture(src);
+tex.colorSpace = THREE.SRGBColorSpace;
+tex.minFilter = THREE.LinearFilter;
+
+const stereoShader = {
+  uniforms: {
+    map: { value: tex },
+    texSize: { value: new THREE.Vector2(W, H) },
+    region: { value: new THREE.Vector4(0.0, 0.0, 0.5, 1.0) } // left eye SBS
+  },
+  vertexShader: `
+    varying vec3 vPos;
+    void main() {
+      vPos = position;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D map;
+    uniform vec2 texSize;
+    uniform vec4 region;
+    varying vec3 vPos;
+    const float PI = 3.14159265359;
+    const float CONT = 2.0;
+
+    void main() {
+      vec3 d = normalize(vPos);
+      vec3 a = abs(d);
+      float col, row;
+      vec2 fuv;
+
+      // Mono EAC fuv values, only grid positions differ (2x3)
+      if (a.x >= a.y && a.x >= a.z) {
+        if (d.x > 0.0) {
+          col = 0.0; row = 2.0;
+          fuv = vec2(d.z, d.y) / a.x;
+        } else {
+          col = 0.0; row = 0.0;
+          fuv = vec2(-d.z, d.y) / a.x;
+        }
+      } else if (a.y >= a.x && a.y >= a.z) {
+        if (d.y < 0.0) {
+          col = 1.0; row = 0.0;
+          fuv = vec2(d.z, d.x) / a.y;
+        } else {
+          col = 1.0; row = 2.0;
+          fuv = vec2(-d.z, d.x) / a.y;
+        }
+      } else {
+        if (d.z < 0.0) {
+          col = 0.0; row = 1.0;
+          fuv = vec2(d.x, d.y) / a.z;
+        } else {
+          col = 1.0; row = 1.0;
+          fuv = vec2(d.y, d.x) / a.z;
+        }
+      }
+
+      vec2 eac = 2.0 / PI * atan(fuv) + 0.5;
+      float faceW = 0.5;
+      float faceH = 1.0 / 3.0;
+      float rW = region.z * texSize.x;
+      float rH = region.w * texSize.y;
+      float cx = CONT / rW;
+      float cy = CONT / rH;
+      float u = col * faceW + cx + eac.x * (faceW - 2.0 * cx);
+      float v = row * faceH + cy + eac.y * (faceH - 2.0 * cy);
+      u = region.x + u * region.z;
+      v = region.y + v * region.w;
+      gl_FragColor = texture2D(map, vec2(u, v));
+    }
+  `
+};
+
+// Render 6 views
+const views = [
+  { name: 'Front (-Z)',  dir: [0, 0, -1], up: [0, 1, 0] },
+  { name: 'Back (+Z)',   dir: [0, 0, 1],  up: [0, 1, 0] },
+  { name: 'Left (-X)',   dir: [-1, 0, 0], up: [0, 1, 0] },
+  { name: 'Right (+X)',  dir: [1, 0, 0],  up: [0, 1, 0] },
+  { name: 'Top (+Y)',    dir: [0, 1, 0],  up: [0, 0, 1] },
+  { name: 'Bottom (-Y)', dir: [0, -1, 0], up: [0, 0, -1] },
+];
+
+for (const v of views) {
+  const div = document.createElement('div');
+  div.className = 'view';
+  const label = document.createElement('div');
+  label.textContent = `Looking: ${v.name}`;
+  div.appendChild(label);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 300; canvas.height = 300;
+  div.appendChild(canvas);
+  document.body.appendChild(div);
+
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(300, 300);
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(90, 1, 0.1, 1000);
+  cam.position.set(0, 0, 0);
+  cam.lookAt(v.dir[0], v.dir[1], v.dir[2]);
+  cam.up.set(v.up[0], v.up[1], v.up[2]);
+  cam.updateMatrixWorld();
+
+  const geo = new THREE.SphereGeometry(100, 96, 64);
+  const mat = new THREE.ShaderMaterial({ ...stereoShader, side: THREE.BackSide });
+  scene.add(new THREE.Mesh(geo, mat));
+  renderer.render(scene, cam);
+  renderer.dispose();
+}
+</script>
+</body>
+</html>
