@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "BobbleVR — Head-Tracked YouTube VR Viewer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Watch YouTube 360° and VR180 videos with webcam head tracking. Move your head to look around, lean in to zoom.",
   "permissions": ["activeTab", "scripting", "storage", "unlimitedStorage"],
   "host_permissions": [
